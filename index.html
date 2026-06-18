@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard HVAC & Kontrol RH</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .card-panel { background-color: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .card-title { font-size: 0.875rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+        .sensor-value { font-size: 2.25rem; font-weight: 800; margin-top: 0.5rem; line-height: 1; }
+        .unit { font-size: 1rem; color: #64748b; font-weight: 600; }
+        
+        .timer-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #334155; font-size: 0.875rem; color: #cbd5e1; }
+        .timer-value { font-weight: 700; font-family: monospace; font-size: 1rem; }
+        
+        .actuator-box { background-color: #0f172a; border: 1px solid #334155; border-radius: 0.5rem; padding: 1rem; text-align: center; transition: all 0.3s; }
+        .actuator-box p:first-child { font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.5rem; }
+        .actuator-box .status { font-size: 1.25rem; font-weight: 800; color: #475569; }
+        .actuator-box.actuator-on { background-color: #064e3b; border-color: #10b981; }
+        .actuator-box.actuator-on .status { color: #34d399; }
+        
+        .nav-btn.active { background-color: #10b981; color: white; font-weight: 700; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex relative overflow-x-hidden">
+
+    <div id="auth-screen" class="fixed inset-0 z-[100] bg-slate-900 flex justify-center items-center p-4 transition-opacity duration-500">
+        <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md relative overflow-hidden">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-extrabold text-emerald-400 tracking-wider mb-2">RH<span class="text-white">Control</span></h1>
+                <p class="text-sm text-slate-400">Sistem Pemantauan Terenkripsi</p>
+            </div>
+            
+            <form id="form-login" class="space-y-4 block" onsubmit="handleLogin(event)">
+                <div><label class="text-xs font-bold text-slate-400 uppercase">Username</label><input type="text" id="login-username" required class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition"></div>
+                <div><label class="text-xs font-bold text-slate-400 uppercase">Password</label><input type="password" id="login-pw" required class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition"></div>
+                <div class="flex justify-between items-center text-sm pt-2"><button type="button" onclick="switchAuthView('reset')" class="text-emerald-400 hover:text-emerald-300">Lupa Password?</button></div>
+                <button type="submit" id="btn-login" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg shadow-lg transition mt-4">MASUK DASHBOARD</button>
+                <p class="text-center text-sm text-slate-400 mt-4">Belum punya akun? <button type="button" onclick="switchAuthView('register')" class="text-white font-bold hover:text-emerald-400">Daftar Baru</button></p>
+            </form>
+
+            <form id="form-register" class="space-y-4 hidden" onsubmit="handleRegister(event)">
+                <div><label class="text-xs font-bold text-slate-400 uppercase">Nama Lengkap</label><input type="text" id="reg-name" required class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"></div>
+                <div><label class="text-xs font-bold text-slate-400 uppercase">Username</label><input type="text" id="reg-username" required class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"></div>
+                <div><label class="text-xs font-bold text-slate-400 uppercase">Email Aktif</label><input type="email" id="reg-email" required class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"></div>
+                <div><label class="text-xs font-bold text-slate-400 uppercase">Password Lengkap</label><input type="password" id="reg-pw" required minlength="6" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"></div>
+                <button type="submit" id="btn-reg" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg transition mt-4">BUAT AKUN</button>
+                <p class="text-center text-sm text-slate-400 mt-4">Sudah ada akun? <button type="button" onclick="switchAuthView('login')" class="text-white font-bold hover:text-emerald-400">Kembali Login</button></p>
+            </form>
+
+            <form id="form-reset" class="space-y-4 hidden" onsubmit="handleReset(event)">
+                <p class="text-sm text-slate-400 text-center mb-4">Masukkan email Anda untuk link reset.</p>
+                <div><label class="text-xs font-bold text-slate-400 uppercase">Email Akun</label><input type="email" id="reset-email" required class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"></div>
+                <button type="submit" id="btn-reset" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg shadow-lg transition mt-4">KIRIM LINK</button>
+                <p class="text-center text-sm text-slate-400 mt-4"><button type="button" onclick="switchAuthView('login')" class="text-white font-bold hover:text-emerald-400">Batal</button></p>
+            </form>
+        </div>
+    </div>
+
+    <aside id="sidebar" class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col fixed h-full z-50 transition-transform duration-300 -translate-x-full md:translate-x-0">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+            <div><h1 class="text-xl font-extrabold text-emerald-400 tracking-wider">RH<span class="text-white">Control</span></h1><p class="text-xs text-slate-400 mt-1">Sistem Pemantauan ESP32</p></div>
+            <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-rose-400 transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <div class="px-6 py-4 border-b border-slate-700/50 bg-slate-900/30">
+            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Logged in as</p>
+            <p id="user-display-name" class="text-sm font-bold text-emerald-400 truncate">Memuat...</p>
+            <button onclick="handleLogout()" class="text-xs text-rose-400 hover:text-rose-300 mt-1 flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> Sign Out</button>
+        </div>
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <button onclick="switchView('home')" id="nav-home" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg> Home</button>
+            <button onclick="switchView('history')" id="nav-history" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all text-slate-400 hover:bg-slate-700/50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Riwayat Data</button>
+            <button onclick="switchView('chart')" id="nav-chart" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all text-slate-400 hover:bg-slate-700/50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg> Grafik Analisis</button>
+            <button onclick="switchView('about')" id="nav-about" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all text-slate-400 hover:bg-slate-700/50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Tentang Alat</button>
+        </nav>
+    </aside>
+
+    <main class="flex-1 md:ml-64 p-6 min-h-screen">
+        <header class="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-emerald-400 transition"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
+                <h2 id="page-title" class="text-lg sm:text-xl font-bold">Dashboard Real-Time</h2>
+            </div>
+            <div class="text-xs sm:text-sm text-slate-400 text-right">Waktu Sistem: <br class="sm:hidden"><span id="txt-timestamp" class="font-mono text-emerald-400">Memuat...</span></div>
+        </header>
+
+        <section id="view-home" class="space-y-6 block">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="card-panel"><p class="card-title">RH In (Dalam)</p><p class="sensor-value text-emerald-400"><span id="txt-rh-in">0.0</span> <span class="unit">%</span></p></div>
+                <div class="card-panel"><p class="card-title">RH Out (Luar)</p><p class="sensor-value text-teal-400"><span id="txt-rh-out">0.0</span> <span class="unit">%</span></p></div>
+                <div class="card-panel"><p class="card-title">Temp In (Dalam)</p><p class="sensor-value text-amber-400"><span id="txt-temp-in">0.0</span> <span class="unit">°C</span></p></div>
+                <div class="card-panel"><p class="card-title">Temp Out (Luar)</p><p class="sensor-value text-orange-400"><span id="txt-temp-out">0.0</span> <span class="unit">°C</span></p></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-panel space-y-4 flex flex-col justify-between">
+                    <div>
+                        <h2 class="card-title mb-3">Status Aksi Sistem</h2>
+                        <div id="badge-mode" class="w-full py-6 rounded-xl font-black text-xl md:text-2xl tracking-wide bg-slate-700 text-slate-200 shadow-inner flex items-center justify-center text-center">
+                            MEMUAT STATUS...
+                        </div>
+                    </div>
+                    <div class="space-y-2 border-t border-slate-700/50 pt-4">
+                        <div class="timer-row"><span>Timer Siklus Utama (8 Jam)</span><span id="timer-loop" class="timer-value text-emerald-400">--:--:--</span></div>
+                        <div class="timer-row"><span>Timer Adsorpsi Kritis</span><span id="timer-tads" class="timer-value">--:--:--</span></div>
+                        <div class="timer-row"><span>Timer Regenerasi Rutin (1 Jam)</span><span id="timer-treg" class="timer-value">--:--:--</span></div>
+                        <div class="timer-row"><span>Timer Regenerasi Paksa (8 Jam)</span><span id="timer-forced" class="timer-value">--:--:--</span></div>
+                        <div class="timer-row border-none pb-0"><span>Timer Cooldown (5 Menit)</span><span id="timer-cooldown" class="timer-value">--:--:--</span></div>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="card-panel">
+                        <h2 class="card-title mb-4 border-b border-slate-700 pb-2">Kontrol Set Point RH</h2>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-slate-400">Target RH Saat Ini:</span>
+                                <span id="display-rh-target" class="text-2xl font-bold text-emerald-400">55.0 %</span>
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-500 uppercase font-bold">Ubah Target RH Baru (50.0 - 60.0%)</label>
+                                <div class="flex gap-2 mt-1">
+                                    <input type="number" id="input-rh-target" min="50" max="60" step="0.1" placeholder="Misal: 55.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
+                                    <button onclick="setRHTarget()" class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap">SET</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-panel">
+                        <h2 class="card-title mb-4">Lampu Indikator Relay</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div id="act-heater" class="actuator-box"><p>PEMANAS (HEATER)</p><p class="status">OFF</p></div>
+                            <div id="act-fan-dehum" class="actuator-box"><p>SIRKULASI INTERNAL</p><p class="status">OFF</p></div>
+                            <div id="act-fan-in" class="actuator-box"><p>VENTILASI MASUK</p><p class="status">OFF</p></div>
+                            <div id="act-fan-out" class="actuator-box"><p>VENTILASI KELUAR</p><p class="status">OFF</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-history" class="hidden">
+            <div class="card-panel">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                    <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <input type="date" id="history-date" class="w-full sm:w-auto bg-slate-900 border border-slate-700 text-white rounded px-3 py-2 text-sm outline-none focus:border-emerald-500">
+                        <button onclick="loadHistoryData()" class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded text-sm font-bold transition shadow-lg whitespace-nowrap">🔍 Cari Data</button>
+                    </div>
+                    <button onclick="downloadCSV()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded text-sm font-bold transition shadow-lg">📥 Unduh CSV</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] sm:text-xs whitespace-nowrap">
+                            <tr>
+                                <th class="px-4 py-3 rounded-tl-lg">Waktu</th>
+                                <th class="px-4 py-3">Status / Mode</th>
+                                <th class="px-4 py-3 text-emerald-400">Target</th>
+                                <th class="px-4 py-3 text-indigo-400">Timer Loop</th>
+                                <th class="px-4 py-3 text-blue-400">Timer Ads</th>
+                                <th class="px-4 py-3 text-rose-400">Timer Reg</th>
+                                <th class="px-4 py-3">RH In</th>
+                                <th class="px-4 py-3">RH Out</th>
+                                <th class="px-4 py-3">Temp In</th>
+                                <th class="px-4 py-3">Aktuator <br><span class="text-[9px] text-slate-500 normal-case font-normal">(H/S/FI/FO)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="divide-y divide-slate-700/50">
+                            <tr><td colspan="10" class="text-center py-8 text-slate-500">Pilih tanggal dan klik cari untuk memuat data.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-chart" class="hidden space-y-6">
+            <div class="flex gap-2 border-b border-slate-700 pb-2 overflow-x-auto">
+                <button onclick="switchChartTab('realtime')" id="tab-chart-realtime" class="px-4 py-2 text-sm font-bold border-b-2 border-emerald-500 text-emerald-400 whitespace-nowrap">Grafik Real-Time</button>
+                <button onclick="switchChartTab('historical')" id="tab-chart-historical" class="px-4 py-2 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">Grafik Riwayat (Instan)</button>
+            </div>
+
+            <div id="area-realtime-chart" class="block space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="card-panel"><h2 class="card-title mb-4">1. Respons Transien RH</h2><div class="relative w-full h-[260px]"><canvas id="rtChart1"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">2. Status Aktuator: Heater</h2><div class="relative w-full h-[260px]"><canvas id="rtChart2"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">3. Status Aktuator: Sirkulasi</h2><div class="relative w-full h-[260px]"><canvas id="rtChart3"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">4. Status Aktuator: Fan In</h2><div class="relative w-full h-[260px]"><canvas id="rtChart4"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">5. Status Aktuator: Fan Out</h2><div class="relative w-full h-[260px]"><canvas id="rtChart5"></canvas></div></div>
+                    <div class="card-panel lg:col-span-2"><h2 class="card-title mb-4">6. Parameter Lingkungan</h2><div class="relative w-full h-[320px]"><canvas id="rtChart6"></canvas></div></div>
+                </div>
+            </div>
+
+            <div id="area-historical-chart" class="hidden space-y-6">
+                <div class="card-panel flex items-center justify-between">
+                    <p class="text-sm text-slate-400">Grafik riwayat disinkronkan otomatis saat Anda menekan tombol <strong class="text-white">"Cari Data"</strong> pada Tab Riwayat Data.</p>
+                    <button onclick="switchView('history')" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded text-sm transition">Ke Tab Riwayat</button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="card-panel"><h2 class="card-title mb-4">1. Respons Transien RH (Riwayat)</h2><div class="relative w-full h-[260px]"><canvas id="histChart1"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">2. Status Aktuator: Heater (Riwayat)</h2><div class="relative w-full h-[260px]"><canvas id="histChart2"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">3. Status Aktuator: Sirkulasi (Riwayat)</h2><div class="relative w-full h-[260px]"><canvas id="histChart3"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">4. Status Aktuator: Fan In (Riwayat)</h2><div class="relative w-full h-[260px]"><canvas id="histChart4"></canvas></div></div>
+                    <div class="card-panel"><h2 class="card-title mb-4">5. Status Aktuator: Fan Out (Riwayat)</h2><div class="relative w-full h-[260px]"><canvas id="histChart5"></canvas></div></div>
+                    <div class="card-panel lg:col-span-2"><h2 class="card-title mb-4">6. Parameter Lingkungan (Riwayat)</h2><div class="relative w-full h-[320px]"><canvas id="histChart6"></canvas></div></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-about" class="hidden">
+            <div class="card-panel space-y-4 max-w-3xl">
+                <h2 class="text-2xl font-bold text-emerald-400 border-b border-slate-700 pb-2">Sistem Kontrol Kelembapan Relatif Berbasis ESP32</h2>
+                <p class="text-slate-300 leading-relaxed text-justify">Sistem dirancang untuk mempertahankan nilai Kelembapan Relatif (RH) ruang tertutup secara dinamis pada rentang 50-60% menggunakan sensor DHT22, pemanas desikan, kipas sirkulasi, dan algoritma ventilasi cerdas (Economizer).</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

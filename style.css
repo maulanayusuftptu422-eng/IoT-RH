@@ -1,0 +1,60 @@
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Komponen Kartu (Card) */
+.card-panel {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.card-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.sensor-value { font-size: 2.25rem; font-weight: 800; margin-top: 0.5rem; line-height: 1; }
+.unit { font-size: 1rem; color: #64748b; font-weight: 600; }
+
+/* Status Mode */
+.badge-mode {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    font-size: 1.125rem;
+}
+
+/* Tabel Timer */
+.timer-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #334155;
+    font-size: 0.875rem;
+    color: #cbd5e1;
+}
+.timer-value { font-weight: 700; font-family: monospace; font-size: 1rem; }
+
+/* Kotak Aktuator */
+.actuator-box {
+    background-color: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s;
+}
+.actuator-box p:first-child { font-size: 0.75rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.5rem; }
+.actuator-box .status { font-size: 1.25rem; font-weight: 800; color: #475569; }
+.actuator-box.actuator-on { background-color: #064e3b; border-color: #10b981; }
+.actuator-box.actuator-on .status { color: #34d399; }
+
+/* Tombol Sidebar */
+.nav-btn.active { background-color: #10b981; color: white; font-weight: 700; }
