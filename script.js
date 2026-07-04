@@ -130,10 +130,15 @@ function switchChartTab(tab) {
 // ==========================================
 function setRHTarget() {
     const inputVal = parseFloat(document.getElementById('input-rh-target').value);
-    if (isNaN(inputVal) || inputVal < 50 || inputVal > 60) return alert("Masukkan rentang target wajar antara 50.0 hingga 60.0 %.");
+    
+    // Angka 50 diubah menjadi 40, begitu juga dengan teks alert-nya
+    if (isNaN(inputVal) || inputVal < 40 || inputVal > 60) return alert("Masukkan rentang target wajar antara 40.0 hingga 60.0 %.");
 
     database.ref('/settings/rh_target').set(inputVal)
-        .then(() => { alert("Target RH sukses diperbarui ke: " + inputVal + "%"); document.getElementById('input-rh-target').value = ''; })
+        .then(() => { 
+            alert("Target RH sukses diperbarui ke: " + inputVal + "%"); 
+            document.getElementById('input-rh-target').value = ''; 
+        })
         .catch(err => alert("Gagal update target: " + err.message));
 }
 
